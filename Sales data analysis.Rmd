@@ -1,0 +1,247 @@
+---
+title: "Sales data analysis"
+output: html_document
+date: "2023-02-15"
+---
+
+## Dataframe operation
+
+Import the common frameworks
+
+```{R}
+library(tidyverse)
+library(ggplot2)
+```
+### Read and write csv
+
+Read the csv files
+
+```{R}
+df_sales = read.csv("./sales_data_sample.csv")
+```
+
+Create a csv file named `sales_data_sample_backup.csv` with the data in `df_sales`
+
+```{R}
+# write.csv(df_sales, "sales_data_sample_backup.csv")
+```
+
+### Joins
+left_join: perform a left join of two data frames based on a common variable
+
+```{R}
+# create two data frames
+df1 <- data.frame(id = c(1, 2, 3), name = c("Alice", "Bob", "Charlie"))
+df2 <- data.frame(id = c(2, 3, 4), age = c(25, 30, 35))
+df3 <- data.frame(id = c(2, 3, 4), age = c(25, 30, 35))
+
+df4 <- df1 %>% left_join(df2, by = "id") %>% left_join(df3, by = "id")
+
+df4 <- df1 %>% inner_join(df2, by = "id") %>% left_join(df3, by = "id")
+```
+
+### Access and update the data frame column values
+
+```{R}
+# Get the column (PRODUCTLINE) values from dataframe (df_sales)
+df_productline <- df_sales$PRODUCTLINE
+
+### Update the DEALSIZE values from Small, Medium, Large to S, M, L respectively
+df_sales$DEALSIZE <- ifelse(
+  df_sales$DEALSIZE == "Small",
+  "S",
+  ifelse(
+    df_sales$DEALSIZE == "Medium",  
+    "M",
+    ifelse(
+      df_sales$DEALSIZE == "Large",   
+      "L",
+      NA
+    )
+  )
+)
+
+# Check if there is a value on DEALSIZE other than S, M, L
+any(is_null(df_sales$DEALSIZE))
+
+# Extract the column value of "DEALSIZE" in second row
+df_sales[2, "DEALSIZE"]
+```
+
+### Aggregation
+In most of cases, we can use `groupby` and `summarize` function to analyze the datasets
+
+```{R}
+df_sales %>%
+  group_by(PRODUCTLINE) %>%      # Group the data by the column "PRODUCTLINE"
+  summarize(
+    count = n(),                 # Number of rows in each product line
+    sum_quantity_ordered = sum(QUANTITYORDERED),
+    mean_quantity_ordered = mean(QUANTITYORDERED),
+    sd_quantity_ordered = sd(QUANTITYORDERED), # Standard Deviation
+    min_quantity_ordered = min(QUANTITYORDERED), 
+    max_quantity_ordered = max(QUANTITYORDERED),  
+    median_quantity_ordered = median(QUANTITYORDERED),
+    unique_country_per_productline = length(unique(COUNTRY)), # Get the unqiue country count per product line
+    unique_country_per_productline_by_n_distinct = n_distinct(COUNTRY),
+  )
+```
+
+#### Reshaping
+Sometime we may need to reshape the data, like move the column values as the column header.
+
+```{R}
+df_sales_by_productline_and_country <- df_sales %>% 
+  group_by(PRODUCTLINE, COUNTRY) %>% 
+  summarize(sum_sales = sum(SALES));
+
+# Reshape the data frame from long to wide format using spread()
+df_sales_by_productline_and_country_reshaped <- spread(df_sales_by_productline_and_country, key = "COUNTRY", value = "sum_sales")
+```
+
+#### Date
+Convert the date string (For example, "1/29/2003 0:00") into date object
+```{R}
+df_sales$ORDERDATE_DateObject = as.Date(df_sales$ORDERDATE, format = "%m/%d/%Y %H:%M")
+```
+
+Get a distinct dates from dateframe and sort it in asc order
+```{R}
+date_list <- df_sales %>%
+  distinct(ORDERDATE_DateObject) %>% 
+  arrange(ORDERDATE_DateObject) # use arrange(ORDERDATE_DateObject, "DESC") for DESC order
+```
+
+Convert the dataframe's date column to list
+
+```{R}
+date_list <- unlist(as.list(date_list$ORDERDATE_DateObject), recursive = FALSE)
+```
+
+Loop the date from 2003-01-06 to 2003-01-21
+
+```{R}
+# set the start and end dates
+start_date <- as.Date("2003-01-06")
+end_date <- as.Date("2003-01-21")
+date_seq <- seq(start_date, end_date, by = "days") # Create an array from start_date to end_date
+
+# loop through the dates
+for (date in date_seq) {
+  date_object <- as.Date(date, origin = "1970-01-01") # Convert the number in to date
+  formated_date <- format(date_object, "%Y%m%d")
+}
+```
+
+For loop
+
+```{R}
+# Create an array of string with values Casino A, Casino B, Casino C
+casino_list = c("Casino A", "Casino B", "Casino C")
+
+# print(casino_list)
+for (casino in casino_list) {
+  print(casino)
+}
+
+```
+
+Combine the techiques
+
+```{R}
+# Find the unique list of countries
+df_with_unique_country <- df_sales %>% distinct(COUNTRY)
+# Convert the data frame df_with_unique_country to an array of country
+country_list <- unlist(as.list(df_with_unique_country$COUNTRY), recursive = FALSE)
+
+# Get the day array
+start_date <- as.Date("2003-01-01")
+end_date <- as.Date("2003-01-02")
+date_seq <- seq(start_date, end_date, by = "days") # Create an array from start_date to end_date
+
+for (country in country_list) {
+ for (date in date_seq) {
+   date_object <- as.Date(date, origin = "1970-01-01") # Convert the number in to date
+   formated_date <- format(date_object, "%Y%m%d")
+   file_name = paste("Daily", "_", country, "_", formated_date, ".csv", sep="")
+   df_subset <- df_sales %>% filter(COUNTRY == country & ORDERDATE_DateObject == date_object)
+   # write.csv(df_subset, file_name)
+  }
+}
+``` 
+
+Select 
+```{R}
+df_sales %>% 
+  subset(select = c(ORDERNUMBER, ORDERDATE)) %>% # Select the ORDERNUMBER and ORDERDATE column only
+  head(n = 5) # Select the top 5 rows in the dataframe
+```
+
+Combine 2 string to single string
+
+```{R}
+string1 = "Hello"
+string2 = "World"
+string3 = paste(string1, "_", string2, sep="")
+string3
+```
+
+## GGPlot
+`ggplot()`: Create a plot object
+`geom_*()`: Add a layer of geometric objects (e.g. points, lines)
+`aes()`: Set aesthetic properties (e.g. color, shape)
+`labs()`: add titles and axis labels
+
+Create charts for sales on different days
+
+```{R}
+
+# Group the sales by dates and product lines
+df_sales_by_day <- df_sales %>% 
+  mutate(ORDERDATE = as.Date(df_sales$ORDERDATE, format = "%m/%d/%Y %H:%M")) %>% 
+  filter(ORDERDATE >= as.Date("2003-02-01") & ORDERDATE <= as.Date("2003-05-01")) %>% 
+  group_by(PRODUCTLINE, ORDERDATE) %>% 
+  summarise(
+    TotalSales = sum(SALES),
+    TotalQuantityOrdered = sum(QUANTITYORDERED)
+  ) %>% 
+  arrange(ORDERDATE)
+
+# Create a scatter plot
+ggplot(data = df_sales_by_day, aes(x = ORDERDATE, y = TotalSales)) + 
+  geom_point() +
+  labs(title = "Scatter plot", x = "Order Date", y = "Total Sales")
+
+# Create a scatter plot with compare on product lines
+ggplot(data = df_sales_by_day, aes(x = ORDERDATE, y = TotalSales)) + 
+  geom_point() +
+  facet_wrap(~PRODUCTLINE) +
+  coord_flip() +
+  labs(title = "Scatter plot", x = "Order Date", y = "Total Sales")
+
+# Create a line chart with red color data point
+ggplot(data = df_sales_by_day, aes(x = ORDERDATE, y = TotalSales)) + 
+  geom_line() +
+  geom_point(size=2, color ="red") +
+  labs(title = "Line Chart", x = "Order Date", y = "Total Sales")
+
+# Create a bar chart
+ggplot(data = df_sales_by_day, aes(x = ORDERDATE, y = TotalSales)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Bar Chart", x = "Order Date", y = "Total Sales")
+
+# Create a box plot on different product lines 
+ggplot(data = df_sales_by_day, aes(x = ORDERDATE, y = TotalSales)) + 
+  geom_boxplot() +
+  facet_wrap(~PRODUCTLINE) +
+  coord_flip() +
+  labs(title = "Box plot", x = "Order Date", y = "Total Sales")
+
+# Create a line chart with 2 lines and different colors
+ggplot(data = df_sales_by_day, aes(x = ORDERDATE)) + 
+  geom_line(aes(y = TotalSales,  color = "Line 1")) +
+  geom_line(aes(y = TotalQuantityOrdered, color = "Line 2")) +
+  labs(title = "Line chart", x = "Order Date", y = "Total Sales & Quantity Ordered")
+```
+
+
